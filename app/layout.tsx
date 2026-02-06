@@ -30,7 +30,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          {children}
+          <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-8 px-6 pb-24 pt-12">
+            {children}
+          </main>
           <TabBar />
         </Providers>
       </body>

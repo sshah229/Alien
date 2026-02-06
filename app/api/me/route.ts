@@ -1,29 +1,18 @@
 import { NextResponse } from "next/server";
-import {
-  verifyToken,
-  extractBearerToken,
-  type TokenInfo,
-} from "@/features/auth/lib";
+import { verifyToken, extractBearerToken } from "@/features/auth/lib";
 import { findOrCreateUser } from "@/features/user/queries";
-import type { UserDTO } from "@/features/user/dto";
-import { JwtErrors } from "@alien_org/auth-client"
+import { JwtErrors } from "@alien_org/auth-client";
 
-export async function GET(
-  request: Request,
-): Promise<NextResponse<UserDTO | { error: string }>> {
+export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const token = extractBearerToken(authHeader);
+    const token = extractBearerToken(request.headers.get("Authorization"));
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Missing authorization token" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Missing authorization token" }, { status: 401 });
     }
 
-    const tokenInfo: TokenInfo = await verifyToken(token);
-    const user = await findOrCreateUser(tokenInfo.sub);
+    const { sub } = await verifyToken(token);
+    const user = await findOrCreateUser(sub);
 
     return NextResponse.json({
       id: user.id,
@@ -33,23 +22,13 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof JwtErrors.JWTExpired) {
-      return NextResponse.json(
-        { error: "Token expired" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Token expired" }, { status: 401 });
     }
-
     if (error instanceof JwtErrors.JOSEError) {
-      return NextResponse.json(
-        { error: "Invalid token" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     console.error("Error in /api/me:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
