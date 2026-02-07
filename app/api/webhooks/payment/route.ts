@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getServerEnv } from "@/lib/env";
 import { WebhookPayload } from "@/features/payments/dto";
-import {
-  findPaymentIntentByInvoice,
-  markPaymentIntentCompleted,
-  markPaymentIntentFailed,
-  createTransaction,
-} from "@/features/payments/queries";
+import { db, schema } from "@/lib/db";
 
 async function verifySignature(
   publicKeyHex: string,
@@ -57,7 +53,6 @@ export async function POST(request: Request) {
     const parsed = WebhookPayload.safeParse(JSON.parse(rawBody));
 
     if (!parsed.success) {
-      console.error("Invalid webhook payload:", parsed.error.flatten());
       return NextResponse.json(
         { error: "Invalid payload" },
         { status: 400 },
@@ -66,39 +61,41 @@ export async function POST(request: Request) {
 
     const payload = parsed.data;
 
-    let senderAlienId: string | null = null;
+    const intent = await db.query.paymentIntents.findFirst({
+      where: eq(schema.paymentIntents.invoice, payload.invoice),
+    });
 
-    if (payload.invoice) {
-      const intent = await findPaymentIntentByInvoice(payload.invoice);
-
-      if (intent) {
-        senderAlienId = intent.senderAlienId;
-
-        if (intent.status === "completed" || intent.status === "failed") {
-          return NextResponse.json({ success: true });
-        }
-
-        if (payload.status === "finalized") {
-          await markPaymentIntentCompleted(payload.invoice);
-        } else if (payload.status === "failed") {
-          await markPaymentIntentFailed(payload.invoice);
-        }
-      }
+    if (!intent) {
+      return NextResponse.json(
+        { error: "Invoice not found" },
+        { status: 404 },
+      );
     }
 
-    console.log("payload", payload);
+    if (intent.status === "completed" || intent.status === "failed") {
+      return NextResponse.json({ success: true });
+    }
 
-    await createTransaction({
-      senderAlienId,
-      recipientAddress: payload.recipient,
-      txHash: payload.txHash ?? null,
-      status: payload.status === "finalized" ? "paid" : "failed",
-      amount: payload.amount ?? null,
-      token: payload.token ?? null,
-      network: payload.network ?? null,
-      invoice: payload.invoice ?? null,
-      test: payload.test ? "true" : null,
-      payload,
+    await db.transaction(async (tx) => {
+      const newStatus = payload.status === "finalized" ? "completed" : "failed";
+
+      await tx
+        .update(schema.paymentIntents)
+        .set({ status: newStatus })
+        .where(eq(schema.paymentIntents.invoice, payload.invoice));
+
+      await tx.insert(schema.transactions).values({
+        senderAlienId: intent.senderAlienId,
+        recipientAddress: payload.recipient,
+        txHash: payload.txHash ?? null,
+        status: payload.status === "finalized" ? "paid" : "failed",
+        amount: intent.amount,
+        token: intent.token,
+        network: intent.network,
+        invoice: payload.invoice,
+        test: payload.test ? "true" : null,
+        payload,
+      });
     });
 
     return NextResponse.json({ success: true });
@@ -106,7 +103,7 @@ export async function POST(request: Request) {
     console.error("Webhook processing error:", error);
     return NextResponse.json(
       { error: "Failed to process webhook" },
-      { status: 400 },
+      { status: 500 },
     );
   }
 }

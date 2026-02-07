@@ -4,6 +4,10 @@ import { verifyToken, extractBearerToken } from "@/features/auth/lib";
 import { JwtErrors } from "@alien_org/auth-client";
 import { CreateInvoiceRequest } from "@/features/payments/dto";
 import { createPaymentIntent } from "@/features/payments/queries";
+import {
+  DIAMOND_PRODUCTS,
+  TEST_DIAMOND_PRODUCTS,
+} from "@/features/payments/constants";
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +33,23 @@ export async function POST(request: Request) {
     }
 
     const { recipientAddress, amount, token: paymentToken, network, productId } = parsed.data;
+
+    const allProducts = [...DIAMOND_PRODUCTS, ...TEST_DIAMOND_PRODUCTS];
+    const product = allProducts.find((p) => p.id === productId);
+
+    if (
+      !product ||
+      product.amount !== amount ||
+      product.token !== paymentToken ||
+      product.network !== network ||
+      product.recipientAddress !== recipientAddress
+    ) {
+      return NextResponse.json(
+        { error: "Invalid product parameters" },
+        { status: 400 },
+      );
+    }
+
     const invoice = `inv-${randomUUID()}`;
 
     const intent = await createPaymentIntent({

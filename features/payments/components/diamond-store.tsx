@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useAlien } from "@alien_org/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -23,9 +23,19 @@ async function fetchTransactions(authToken: string): Promise<TransactionDTO[]> {
   return data.transactions;
 }
 
-function formatAmount(amount: string, token: string): string {
-  const decimals = token === "USDC" ? 1_000_000 : 1_000_000_000;
-  return `${Number(amount) / decimals} ${token}`;
+const TOKEN_DECIMALS: Record<string, number> = {
+  USDC: 6,
+  SOL: 9,
+  ALIEN: 9,
+};
+
+function formatAmount(rawAmount: string, token: string): string {
+  const decimals = TOKEN_DECIMALS[token] ?? 9;
+  const whole = rawAmount.padStart(decimals + 1, "0");
+  const intPart = whole.slice(0, -decimals);
+  const fracPart = whole.slice(-decimals).replace(/0+$/, "");
+  const formatted = fracPart ? `${intPart}.${fracPart}` : intPart;
+  return `${formatted} ${token}`;
 }
 
 function DiamondIcon({ count }: { count: number }) {
@@ -171,6 +181,7 @@ export function DiamondStore() {
   const { authToken, isBridgeAvailable } = useAlien();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("real");
+  const activeProductRef = useRef<DiamondProduct | null>(null);
 
   const {
     data: transactions,
@@ -183,16 +194,32 @@ export function DiamondStore() {
   });
 
   const handlePaid = useCallback(() => {
-    toast.success("Purchase successful! Your diamonds are on the way.");
+    const product = activeProductRef.current;
+    if (product) {
+      toast.success(
+        `Bought ${product.diamonds} diamonds for ${product.price}`,
+      );
+    }
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
   }, [queryClient]);
 
   const handleCancelled = useCallback(() => {
-    toast("Payment cancelled.", { icon: "\u2715" });
+    const product = activeProductRef.current;
+    toast(
+      product
+        ? `Purchase of ${product.diamonds} diamonds cancelled`
+        : "Payment cancelled",
+      { icon: "\u2715" },
+    );
   }, []);
 
   const handleFailed = useCallback(() => {
-    toast.error("Payment failed. Please try again.");
+    const product = activeProductRef.current;
+    toast.error(
+      product
+        ? `Failed to buy ${product.diamonds} diamonds for ${product.price}`
+        : "Payment failed. Please try again.",
+    );
   }, []);
 
   const {
@@ -206,6 +233,7 @@ export function DiamondStore() {
   });
 
   const handleBuy = async (product: DiamondProduct) => {
+    activeProductRef.current = product;
     try {
       await purchase(product);
     } catch (err) {

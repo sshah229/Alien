@@ -1,11 +1,12 @@
 import { createAuthClient, type AuthClient } from "@alien_org/auth-client";
+import { getServerEnv } from "@/lib/env";
 
 let authClient: AuthClient | null = null;
 
 function getAuthClient(): AuthClient {
   if (!authClient) {
     authClient = createAuthClient({
-      jwksUrl: "https://sso.develop.alien-api.com/oauth/jwks",
+      jwksUrl: getServerEnv().ALIEN_JWKS_URL,
     });
   }
   return authClient;
