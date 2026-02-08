@@ -32,20 +32,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { recipientAddress, amount, token: paymentToken, network, productId } = parsed.data;
+    const { productId } = parsed.data;
 
     const allProducts = [...DIAMOND_PRODUCTS, ...TEST_DIAMOND_PRODUCTS];
     const product = allProducts.find((p) => p.id === productId);
 
-    if (
-      !product ||
-      product.amount !== amount ||
-      product.token !== paymentToken ||
-      product.network !== network ||
-      product.recipientAddress !== recipientAddress
-    ) {
+    if (!product) {
       return NextResponse.json(
-        { error: "Invalid product parameters" },
+        { error: "Invalid product" },
         { status: 400 },
       );
     }
@@ -55,16 +49,26 @@ export async function POST(request: Request) {
     const intent = await createPaymentIntent({
       invoice,
       senderAlienId: sub,
-      recipientAddress,
-      amount,
-      token: paymentToken,
-      network,
-      productId,
+      recipientAddress: product.recipientAddress,
+      amount: product.amount,
+      token: product.token,
+      network: product.network,
+      productId: product.id,
     });
 
     return NextResponse.json({
       invoice: intent.invoice,
       id: intent.id,
+      recipient: product.recipientAddress,
+      amount: product.amount,
+      token: product.token,
+      network: product.network,
+      item: {
+        title: product.name,
+        iconUrl: product.iconUrl,
+        quantity: product.diamonds,
+      },
+      ...(product.test ? { test: product.test } : {}),
     });
   } catch (error) {
     if (error instanceof JwtErrors.JWTExpired) {

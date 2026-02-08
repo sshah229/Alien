@@ -235,7 +235,7 @@ export function DiamondStore() {
   const handleBuy = async (product: DiamondProduct) => {
     activeProductRef.current = product;
     try {
-      await purchase(product);
+      await purchase(product.id);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to initiate payment",

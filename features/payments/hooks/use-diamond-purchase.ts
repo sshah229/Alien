@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useAlien, usePayment } from "@alien_org/react";
-import type { DiamondProduct } from "../constants";
+import type { CreateInvoiceResponse } from "../dto";
 
 type UseDiamondPurchaseOptions = {
   onPaid?: () => void;
@@ -24,7 +24,7 @@ export function useDiamondPurchase({
   });
 
   const purchase = useCallback(
-    async (product: DiamondProduct) => {
+    async (productId: string) => {
       if (!authToken) return;
 
       const res = await fetch("/api/invoices", {
@@ -33,13 +33,7 @@ export function useDiamondPurchase({
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({
-          recipientAddress: product.recipientAddress,
-          amount: product.amount,
-          token: product.token,
-          network: product.network,
-          productId: product.id,
-        }),
+        body: JSON.stringify({ productId }),
       });
 
       if (!res.ok) {
@@ -47,20 +41,16 @@ export function useDiamondPurchase({
         throw new Error(body?.error ?? "Failed to create invoice");
       }
 
-      const { invoice } = await res.json();
+      const data: CreateInvoiceResponse = await res.json();
 
       payment.pay({
-        recipient: product.recipientAddress,
-        amount: product.amount,
-        token: product.token,
-        network: product.network,
-        invoice,
-        item: {
-          title: "Diamonds",
-          iconUrl: product.iconUrl,
-          quantity: product.diamonds,
-        },
-        test: product.test,
+        recipient: data.recipient,
+        amount: data.amount,
+        token: data.token,
+        network: data.network,
+        invoice: data.invoice,
+        item: data.item,
+        test: data.test,
       });
     },
     [authToken, payment],

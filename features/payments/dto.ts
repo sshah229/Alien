@@ -1,10 +1,7 @@
 import { z } from "zod";
+import type { PaymentTestScenario } from "@alien_org/contract";
 
 export const CreateInvoiceRequest = z.object({
-  recipientAddress: z.string().min(1),
-  amount: z.string().min(1),
-  token: z.string().min(1),
-  network: z.string().min(1),
   productId: z.string().min(1),
 });
 
@@ -13,6 +10,16 @@ export type CreateInvoiceRequest = z.infer<typeof CreateInvoiceRequest>;
 export const CreateInvoiceResponse = z.object({
   invoice: z.string(),
   id: z.string(),
+  recipient: z.string(),
+  amount: z.string(),
+  token: z.string(),
+  network: z.string(),
+  item: z.object({
+    title: z.string(),
+    iconUrl: z.string(),
+    quantity: z.number(),
+  }),
+  test: z.string().optional().transform((val) => val as PaymentTestScenario | undefined),
 });
 
 export type CreateInvoiceResponse = z.infer<typeof CreateInvoiceResponse>;
