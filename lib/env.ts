@@ -10,6 +10,7 @@ const serverSchema = z.object({
 const clientSchema = z.object({
   NEXT_PUBLIC_RECIPIENT_ADDRESS: z.string().min(1, "NEXT_PUBLIC_RECIPIENT_ADDRESS is required"),
   NEXT_PUBLIC_ALIEN_RECIPIENT_ADDRESS: z.string().min(1, "NEXT_PUBLIC_ALIEN_RECIPIENT_ADDRESS is required"),
+  NEXT_PUBLIC_SSO_BASE_URL: z.optional(z.url("NEXT_PUBLIC_SSO_BASE_URL must be a valid URL")).default("https://sso.alien-api.com"),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

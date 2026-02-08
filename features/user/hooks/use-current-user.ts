@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@alien_org/sso-sdk-react";
 import { useAlien } from "@alien_org/react";
 import { useQuery } from "@tanstack/react-query";
 import { UserDTO } from "../dto";
@@ -18,10 +19,15 @@ async function fetchCurrentUser(authToken: string): Promise<UserDTO> {
 }
 
 export function useCurrentUser() {
-  const { authToken } = useAlien();
+  // Try SSO auth token first, fallback to Mini App token
+  const { auth: ssoAuth } = useAuth();
+  const { authToken: miniappToken } = useAlien();
+  
+  // Prefer SSO token if available, otherwise use Mini App token
+  const authToken = ssoAuth.token ?? miniappToken ?? null;
 
   const { data: user, isLoading: loading, error } = useQuery({
-    queryKey: ["currentUser"],
+    queryKey: ["currentUser", authToken],
     queryFn: () => fetchCurrentUser(authToken!),
     enabled: !!authToken,
   });
